@@ -1,63 +1,52 @@
-# AI’s EYE — AI 서비스 개발과 GCP 배포
+# AI’s EYE
 
-매장 영상 분석 결과와 주문 데이터를 연결해 운영 상황과 인력 조건을 비교하는 서비스입니다.
-**5인 팀장으로 API·DB·운영 분석을 구현하고, 미니PC·GCP 배포와 기능 통합을 담당했습니다.**
+매장 영상 분석 결과와 주문 데이터를 모아, 매장 상황을 확인하고 인력 운영안을 비교하는 서비스입니다.
+5인 팀에서 팀장을 맡았습니다. 공통 API와 DB, 운영 분석 기능을 만들고, 팀원이 개발한 영상 분석·화면·챗봇을 연결했습니다. 미니PC와 GCP 배포도 담당했습니다.
 
-| 기간 | 역할 | 수상 |
-|---|---|---|
-| 2026.06.29~08.28 | 5인 팀 · 팀장 / Backend·Cloud·통합 | KT AIVLE Big Project Collaboration · 2026.09.03 |
+2026.06.29~08.28 · KT AIVLE 빅프로젝트
 
-## 내가 맡은 일
+**KT AIVLE Big Project Collaboration 수상 · 2026.09.03**
 
-| 핵심 기여 | 구현 내용 | 근거 |
-|---|---|---|
-| GCP 자동 배포 | Docker Compose, develop→미니PC / main→GCP, 배포 후 응답 점검 | [PR #257](https://github.com/aivle-b-t24/ai-s-eye/pull/257) · [GCP 배포 코드](scripts/deploy-gcp.sh) |
-| 공통 API·DB·통합 | FastAPI·PostgreSQL 데이터 저장, 인증, 팀 기능 연결 | [DB PR #34](https://github.com/aivle-b-t24/ai-s-eye/pull/34) · [통합 PR #113](https://github.com/aivle-b-t24/ai-s-eye/pull/113) |
-| AI 운영 분석 | Gemini Agent와 SimPy를 연결해 같은 수요에서 인력 조건 비교 | [PR #273](https://github.com/aivle-b-t24/ai-s-eye/pull/273) |
+## 개발과 배포
 
-Vision 기본 추론과 초기 Dashboard·AICC는 팀원 구현이며, 공통 API·배포 환경에 통합하고 개선했습니다.
-
-## 결과와 문제 해결
-
-- 미니PC 공용 개발 환경과 GCP 시연 환경을 연결하고, **2026.08.12 GCP 자동 배포 성공 기록**을 확보했습니다.
-- 팀 기능을 하나의 서비스로 통합해 시연하고, KT AIVLE Big Project Collaboration을 수상했습니다.
-
-**재배포의 컨테이너 충돌과 데이터 보존**
-
-미니PC 재배포 과정에서 기존 컨테이너 이름이 충돌했습니다.
-교체할 앱 컨테이너만 정리하고 DB·볼륨은 보존하도록 수정한 뒤 GCP 배포에도 적용했습니다.
-DB 백업, 변경 후 응답 확인, 실패 시 로그 출력을 배포 절차에 포함했습니다.
-
-[배포 스크립트](scripts/deploy-gcp.sh) · [GCP 운영 절차](docs/gcp-runbook.md)
-
-## 구조와 실행 화면
+- **백엔드:** FastAPI와 PostgreSQL로 매장 상태·주문 데이터를 저장하고 조회하는 API를 만들었습니다. 팀 기능을 연결할 때 사용할 데이터 형식과 인증도 정리했습니다. [DB 구성](https://github.com/aivle-b-t24/ai-s-eye/pull/34) · [기능 통합](https://github.com/aivle-b-t24/ai-s-eye/pull/113)
+- **운영 분석:** Gemini Agent와 SimPy를 연결했습니다. 같은 주문 수요에서 직원 수를 바꿔 비교하고, 계산 결과가 목표를 충족하는지는 서버에서 판단하도록 구현했습니다. [관련 PR](https://github.com/aivle-b-t24/ai-s-eye/pull/273)
+- **자동 배포:** `develop`은 공용 개발 서버인 미니PC에, `main`은 시연용 GCP에 배포하도록 GitHub Actions를 구성했습니다. [배포 PR](https://github.com/aivle-b-t24/ai-s-eye/pull/257)
 
 ```mermaid
 flowchart LR
-    Git[GitHub Actions] --> Dev[develop: 미니PC]
-    Git --> Prod[main: GCP Compute Engine]
-    Prod --> Compose[Docker Compose]
-    Compose --> Web[React Dashboard]
-    Compose --> API[FastAPI / PostgreSQL]
-    Compose --> AI[AICC / Gemini / SimPy]
-    Vision[별도 Vision 분석 결과] --> API
-    Web --> API
-    AI --> API
+    Actions[GitHub Actions] -->|develop| Mini[미니PC: 개발 환경]
+    Actions -->|main| GCP[GCP Compute Engine]
+    subgraph Runtime[GCP: Docker Compose]
+        Web[Dashboard] --> API[FastAPI]
+        API --> DB[PostgreSQL]
+        AICC[AICC / 운영 분석] --> API
+    end
+    GCP --> Runtime
+    Vision[별도 GPU 환경] -->|영상 분석 결과| API
 ```
 
-GCP CPU VM은 웹·API·DB·운영 분석을 담당합니다. GPU 영상 추론은 별도 환경에서 수행합니다.
+영상 추론은 별도 GPU 환경에서 수행하고, GCP CPU VM에서는 웹·API·DB·운영 분석을 실행했습니다.
 
-**운영 Agent와 인력 조건 비교 화면**
+## 재배포 중 컨테이너가 뜨지 않았던 문제
 
-<img src="docs/operations-agent-result.png" alt="합성 주문 기반 운영 Agent와 인력 조건 비교 결과" width="640" />
+미니PC 자동 배포에서 기존 컨테이너 이름과 충돌해 앱이 `Created` 상태에 멈추고 헬스체크가 실패했습니다.
+앱 컨테이너만 선택해 교체하도록 배포 스크립트를 수정했습니다. PostgreSQL과 데이터 볼륨은 교체 대상에서 제외했습니다.
 
-화면의 수치는 **합성 주문 기반 What-if 결과**입니다. 실제 매장의 개선 실적이 아닙니다.
+수동 복구 후 자동 배포를 다시 실행해 정상 동작을 확인했고, 같은 처리를 GCP 배포에도 적용했습니다.
+GCP에서는 배포 전에 DB를 백업하고, 배포 후 API·화면의 응답을 확인하도록 구성했습니다. 실패하면 컨테이너 상태와 로그를 출력하게 했습니다.
 
-## 더 보기
+[수정 PR](https://github.com/aivle-b-t24/ai-s-eye/pull/259) · [배포 스크립트](scripts/deploy-gcp.sh) · [GCP 배포 실행](https://github.com/aivle-b-t24/ai-s-eye/actions/runs/31553126057)
 
-- [서비스 화면](https://aiseye.ldhcloud.com) — 2026.09.20 HTTP 응답 확인; 기능 이용에는 인증이 필요할 수 있습니다.
-- [실행·설계 문서 안내](docs/portfolio-guide.md)
-- [GCP 운영 절차](docs/gcp-runbook.md) · [미니PC 운영 절차](docs/minipc-runbook.md)
-- [팀 저장소](https://github.com/aivle-b-t24/ai-s-eye)
+## 운영 분석 화면
 
-이 저장소는 팀 프로젝트의 개인 포트폴리오용 포크입니다. 팀원의 기여와 원본 이력을 보존합니다.
+직원 수를 바꿨을 때 대기시간과 완료 주문 수가 어떻게 달라지는지 비교하는 화면입니다.
+아래 결과는 **합성 주문을 사용한 시뮬레이션**입니다.
+
+<img src="docs/operations-agent-result.png" alt="같은 주문 수요에서 직원 1명과 2명을 비교하는 운영 분석 화면" width="640" />
+
+## 실행과 문서
+
+- [서비스 화면](https://aiseye.ldhcloud.com)
+- [실행 안내](docs/portfolio-guide.md) · [GCP 운영 절차](docs/gcp-runbook.md) · [미니PC 운영 절차](docs/minipc-runbook.md)
+- [원본 팀 저장소](https://github.com/aivle-b-t24/ai-s-eye)
